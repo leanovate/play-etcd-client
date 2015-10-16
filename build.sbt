@@ -7,9 +7,11 @@ organization := "de.leanovate"
 scalaVersion := "2.11.7"
 
 libraryDependencies ++= Seq(
-  "com.typesafe.play" %% "play-ws" % "2.4.3",
+  "com.typesafe.play" %% "play-ws" % "2.4.3" % "provided",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
-  "org.mockito" % "mockito-core" % "1.10.19" % "test"
+  "org.mockito" % "mockito-core" % "1.10.19" % "test",
+  "de.leanovate.play-mockws" %% "play-mockws" % "2.4.1" % "test",
+  "com.typesafe.play" %% "play-test" % "2.4.3" % "test"
 )
 
 fork in run := true
