@@ -1,10 +1,12 @@
 package de.leanovate.play.etcd
 
+import java.net.InetAddress
 import javax.inject.Inject
 
 import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.concurrent.Future
+import scala.util.Try
 
 /**
  * Collection of patterns one might use in combination with etcd
@@ -62,10 +64,15 @@ class EtcdOperations @Inject()(
    * The queue is supposed to behave like a fifo and ony once client is supposed to receive the value.
    *
    * @param dirKey the directory node to use for queuing
+   * @param value the value to enqueue
    * @param ttl Optional time to live of the value
    * @return the key of the enqueued node
    */
-  def enqueueValue(dirKey: String, ttl: Option[Long]): Future[String] = ???
+  def enqueueValue(dirKey: String, value: String, ttl: Option[Long]): Future[String] =
+    etcdClient.createValue(dirKey, value, ttl).map {
+      case EtcdSuccess(_, _, EtcdValueNode(key, _, _, _, _, _), _) => key
+      case etcdError => throw new RuntimeException(s"Etcd request failed: $etcdError")
+    }
 
   /**
    * Dequeue a value when (mis)using etcd as queueing service.
@@ -75,22 +82,88 @@ class EtcdOperations @Inject()(
    * @param dirKey the directory node to use for queuing
    * @return dequed value
    */
-  def dequeueValue(dirKey: String): Future[String] = ???
+  def dequeueValue(dirKey: String): Future[String] = {
+    def tryPop(etcdIndex: Long, nodes: Seq[EtcdValueNode]): Future[String] = {
+      nodes.headOption.map {
+        node =>
+          etcdClient.deleteValue(node.key, prevIndex = node.modifiedIndex).flatMap {
+            case _: EtcdSuccess => Future.successful(node.value)
+            case EtcdError(_, _, EtcdErrorCodes.COMPARE_FAILED, _, _) => tryPop(etcdIndex, nodes.tail)
+            case etcdError => throw new RuntimeException(s"Etcd request failed: $etcdError")
+          }
+      }.getOrElse {
+        tryPopCandidates(Some(etcdIndex))
+      }
+    }
+
+    def tryPopCandidates(waitIndex: Option[Long]): Future[String] =
+      etcdClient.getNode(dirKey, sorted = Some(true), waitIndex = waitIndex, wait = waitIndex.map(_ => true))
+        .map(nodesFromResult)
+        .flatMap {
+        case (etcdIndex, nodes) =>
+          tryPop(etcdIndex,
+            nodes.flatMap {
+              case valueNode: EtcdValueNode => Seq(valueNode)
+              case _ => Seq.empty
+            })
+      }
+
+    tryPopCandidates(None)
+  }
+
+  /**
+   * Try to run a code block with a lock.
+   *
+   * I.e. only one client is supposed to run a `block` at a time. If another client is currently holding the lock,
+   * the `block` is not executed.
+   *
+   * @param key The key to use for locking (will become a value key)
+   * @param ttl Optional time to live of the key (recommended to prevent deadlocks in case of a major failure)
+   * @param block The code block requiring cluster-wide synchronization
+   * @return flag if block was executed and etcd index of the try
+   */
+  def tryLock(key: String, ttl: Option[Long])(block: => Unit): Future[(Long, Boolean)] = {
+    etcdClient.updateValue(key, InetAddress.getLocalHost.getHostName,
+      ttl = ttl, prevExists = Some(false)).flatMap {
+      case _: EtcdSuccess =>
+        Try(block)
+        etcdClient.deleteValue(key).map {
+          case EtcdSuccess(etcdIndex, _, _, _) => (etcdIndex, true)
+          case etcdError => throw new RuntimeException(s"Etcd request failed: $etcdError")
+        }
+      case EtcdError(etcdIndex, _, EtcdErrorCodes.COMPARE_FAILED, _, _) => Future.successful((etcdIndex, false))
+      case etcdError => throw new RuntimeException(s"Etcd request failed: $etcdError")
+    }
+  }
 
   /**
    * Lock a code block via etcd.
    *
-   * I.e. only one clinet is supposed to run a `block` at a time.
+   * I.e. only one client is supposed to run a `block` at a time.
    *
    * @param key The key to use for locking (will become a value key)
-   * @param ttl Optional time to live of the key (recomented to prevent deadlocks in case of a major failure)
+   * @param ttl Optional time to live of the key (recommended to prevent deadlocks in case of a major failure)
    * @param block The code block requiring cluster-wide synchronization
    */
-  def lock(key: String, ttl: Option[Long])(block: => Unit): Unit = ???
+  def lock(key: String, ttl: Option[Long])(block: => Unit): Future[Unit] = {
+    tryLock(key, ttl)(block).flatMap {
+      case (_, true) => Future.successful(Unit)
+      case (etcdIndex, false) => etcdClient.getNode(key, wait = Some(true), waitIndex = Some(etcdIndex)).flatMap {
+        _ =>
+          lock(key, ttl)(block)
+      }
+    }
+  }
 
   private def valueFromResult(result: EtcdResult): String = result match {
     case EtcdSuccess(_, _, EtcdValueNode(_, value, _, _, _, _), _) => value
     case EtcdSuccess(_, _, EtcdDirNode(key, _, _, _, _, _), _) => throw new RuntimeException(s"$key is a directory")
+    case etcdError => throw new RuntimeException(s"Etcd request failed: $etcdError")
+  }
+
+  private def nodesFromResult(result: EtcdResult): (Long, Seq[EtcdNode]) = result match {
+    case EtcdSuccess(etcdIndex, _, EtcdDirNode(_, nodes, _, _, _, _), _) => (etcdIndex, nodes)
+    case EtcdSuccess(_, _, EtcdValueNode(key, _, _, _, _, _), _) => throw new RuntimeException(s"$key is not a directory")
     case etcdError => throw new RuntimeException(s"Etcd request failed: $etcdError")
   }
 }

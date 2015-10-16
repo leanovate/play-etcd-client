@@ -6,6 +6,8 @@ organization := "de.leanovate"
 
 scalaVersion := "2.11.7"
 
+scalacOptions := Seq("-deprecation")
+
 libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play-ws" % "2.4.3" % "provided",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
