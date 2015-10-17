@@ -24,7 +24,16 @@ class EtcdOperations @Inject()(
    * @param key The key to lookup
    * @return All values found at `key`
    */
-  def getValues(key: String): Future[Seq[String]] = ???
+  def getValues(key: String): Future[Seq[String]] = etcdClient.getNode(key).map {
+    case EtcdSuccess(_, _, EtcdValueNode(_, value, _, _, _, _), _) =>
+      Seq(value)
+    case EtcdSuccess(_, _, EtcdDirNode(_, nodes, _, _, _, _), _) =>
+      nodes.flatMap {
+        case EtcdValueNode(_, value, _, _, _, _) => Seq(value)
+        case _ => Seq()
+      }
+    case _ => Seq()
+  }
 
   /**
    * Tries an atomic transformation of a value node.
@@ -35,14 +44,19 @@ class EtcdOperations @Inject()(
    * @param transformation The transformation
    * @return The current value of the and if the transformation was successful
    */
-  def tryTransformValue(key: String, transformation: (String) => String): Future[(Boolean, String)] =
+  def tryTransformValue(key: String, transformation: (String) => String): Future[(Boolean, String)] = {
     etcdClient.getNode(key).map(valueFromResult).flatMap {
       value =>
         etcdClient.updateValue(key, transformation(value), prevValue = Some(value)).flatMap {
-          case EtcdSuccess(_, _, EtcdValueNode(_, newValue, _, _, _, _), _) => Future.successful((true, newValue))
-          case _ => etcdClient.getNode(key).map(valueFromResult).map((false, _))
+          case EtcdSuccess(_, _, EtcdValueNode(_, newValue, _, _, _, _), _) =>
+            Future.successful((true, newValue))
+          case EtcdError(_, _, EtcdErrorCodes.COMPARE_FAILED, _, _) =>
+            etcdClient.getNode(key).map(valueFromResult).map((false, _))
+          case etcdError =>
+            throw new RuntimeException(s"Etcd request failed: $etcdError")
         }
     }
+  }
 
   /**
    * Perform an atomic transformation of a value node.
@@ -92,7 +106,7 @@ class EtcdOperations @Inject()(
             case etcdError => throw new RuntimeException(s"Etcd request failed: $etcdError")
           }
       }.getOrElse {
-        tryPopCandidates(Some(etcdIndex))
+        tryPopCandidates(Some(etcdIndex + 1))
       }
     }
 
@@ -148,7 +162,7 @@ class EtcdOperations @Inject()(
   def lock(key: String, ttl: Option[Long])(block: => Unit): Future[Unit] = {
     tryLock(key, ttl)(block).flatMap {
       case (_, true) => Future.successful(Unit)
-      case (etcdIndex, false) => etcdClient.getNode(key, wait = Some(true), waitIndex = Some(etcdIndex)).flatMap {
+      case (etcdIndex, false) => etcdClient.getNode(key, wait = Some(true), waitIndex = Some(etcdIndex + 1)).flatMap {
         _ =>
           lock(key, ttl)(block)
       }

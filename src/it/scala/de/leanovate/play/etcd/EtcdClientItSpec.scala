@@ -1,16 +1,13 @@
 package de.leanovate.play.etcd
 
-import java.net.URI
-
 import org.scalatest.{FlatSpec, MustMatchers}
-import play.api.libs.ws.WS
-import play.api.test.{DefaultAwaitTimeout, FakeApplication, FutureAwaits}
+import play.api.test.{DefaultAwaitTimeout, FutureAwaits}
 
 import scala.util.Random
 
 class EtcdClientItSpec extends FlatSpec with MustMatchers with FutureAwaits with DefaultAwaitTimeout {
 
-  it should "create, get, update and delete value key" in new WithMocks {
+  it should "create, get, update and delete value key" in new WithEtcdClient {
     val EtcdError(initalEtcdIndex, cause, EtcdErrorCodes.KEY_NOT_FOUND, _, _) = await(etcdClient.getNode(testKey))
 
     cause mustEqual testKey
@@ -38,7 +35,7 @@ class EtcdClientItSpec extends FlatSpec with MustMatchers with FutureAwaits with
     deleteEtcdIndex must be > updateEtcdIndex
   }
 
-  it should "create dir, unique node in dir, delete dir" in new WithMocks {
+  it should "create dir, unique node in dir, delete dir" in new WithEtcdClient {
     val EtcdError(initalEtcdIndex, cause, EtcdErrorCodes.KEY_NOT_FOUND, _, _) = await(etcdClient.getNode(testKey))
 
     cause mustEqual testKey
@@ -79,7 +76,7 @@ class EtcdClientItSpec extends FlatSpec with MustMatchers with FutureAwaits with
     deleteEtcdIndex must be > createEtcdIndex2
   }
 
-  it should "wait for changes" in new WithMocks {
+  it should "wait for changes" in new WithEtcdClient {
     val EtcdError(initalEtcdIndex, cause, EtcdErrorCodes.KEY_NOT_FOUND, _, _) = await(etcdClient.getNode(testKey))
 
     cause mustEqual testKey
@@ -101,13 +98,4 @@ class EtcdClientItSpec extends FlatSpec with MustMatchers with FutureAwaits with
     updatedNode.value mustEqual "updatedValue"
     prevNode.value mustEqual "initialvalue"
   }
-
-  trait WithMocks {
-    val dockerHostIp = new URI(sys.env.getOrElse("DOCKER_HOST", sys.props.getOrElse("DOCKER_HOST", "tcp://localhost:2376"))).getHost
-
-    val etcdClient = new EtcdClient(s"http://$dockerHostIp:2379", WS.client(new FakeApplication()))
-
-    var testKey = ('/' +: Random.alphanumeric.take(20)).mkString
-  }
-
 }

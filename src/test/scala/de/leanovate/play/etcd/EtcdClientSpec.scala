@@ -104,6 +104,5 @@ class EtcdClientSpec extends FlatSpec with MustMatchers with FutureAwaits with D
     val mockWS = MockWS(etcdRoute)
     val etcdClient = new EtcdClient("http://localhost:2379", mockWS)
   }
-
 }
 
