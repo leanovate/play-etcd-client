@@ -1,6 +1,6 @@
 package de.leanovate.play.etcd
 
-import org.joda.time.DateTime
+import java.time.Instant
 import play.api.libs.json._
 
 sealed trait EtcdNode
@@ -10,7 +10,7 @@ case class EtcdValueNode(
                           value: String,
                           createdIndex: Option[Long],
                           modifiedIndex: Option[Long],
-                          expiration: Option[DateTime],
+                          expiration: Option[Instant],
                           ttl: Option[Long]
                           ) extends EtcdNode
 
@@ -19,7 +19,7 @@ case class EtcdDirNode(
                         nodes: Seq[EtcdNode],
                         createdIndex: Option[Long],
                         modifiedIndex: Option[Long],
-                        expiration: Option[DateTime],
+                        expiration: Option[Instant],
                         ttl: Option[Long]
                         ) extends EtcdNode
 
@@ -32,18 +32,18 @@ object EtcdNode {
           nodes <- (json \ "nodes").validateOpt[Seq[EtcdNode]]
           createdIndex <- (json \ "createdIndex").validateOpt[Long]
           modifiedIndex <- (json \ "modifiedIndex").validateOpt[Long]
-          expiration <- (json \ "expiration").validateOpt[DateTime]
+          expiration <- (json \ "expiration").validateOpt[Instant]
           ttl <- (json \ "ttl").validateOpt[Long]
         } yield EtcdDirNode(key, nodes.toSeq.flatten, createdIndex, modifiedIndex, expiration, ttl)
       } else {
         for {
           key <- (json \ "key").validate[String]
-          value <- (json \ "value").validate[String]
+          value <- (json \ "value").validateOpt[String]
           createdIndex <- (json \ "createdIndex").validateOpt[Long]
           modifiedIndex <- (json \ "modifiedIndex").validateOpt[Long]
-          expiration <- (json \ "expiration").validateOpt[DateTime]
+          expiration <- (json \ "expiration").validateOpt[Instant]
           ttl <- (json \ "ttl").validateOpt[Long]
-        } yield EtcdValueNode(key, value, createdIndex, modifiedIndex, expiration, ttl)
+        } yield EtcdValueNode(key, value.getOrElse(""), createdIndex, modifiedIndex, expiration, ttl)
       }
     }
   }

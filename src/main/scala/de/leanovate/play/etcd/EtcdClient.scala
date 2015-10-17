@@ -130,7 +130,7 @@ class EtcdClient @Inject()(
 
   private def handleResponse(response: WSResponse): EtcdResult =
     (response.status, response.header("X-Etcd-Index").map(_.toLong)) match {
-      case (Status.OK, Some(etcdIndex)) =>
+      case (Status.OK | Status.CREATED, Some(etcdIndex)) =>
         EtcdSuccess.fromJson(etcdIndex, response.json)
       case (_, Some(etcdIndex)) =>
         EtcdError.fromJson(etcdIndex, response.json)

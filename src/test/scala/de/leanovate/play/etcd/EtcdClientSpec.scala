@@ -1,5 +1,7 @@
 package de.leanovate.play.etcd
 
+import java.time.Instant
+
 import mockws.{MockWS, Route}
 import org.scalatest.{FlatSpec, MustMatchers}
 import play.api.libs.json.Json
@@ -18,7 +20,9 @@ class EtcdClientSpec extends FlatSpec with MustMatchers with FutureAwaits with D
             "key" -> "/foo",
             "value" -> "bar",
             "modifiedIndex" -> 10,
-            "createdIndex" -> 9
+            "createdIndex" -> 9,
+            "expiration" -> "2015-10-17T12:16:55.450716163Z",
+            "ttl" -> 25
           )
         )).withHeaders("X-Etcd-Index" -> "10")
       }
@@ -33,8 +37,8 @@ class EtcdClientSpec extends FlatSpec with MustMatchers with FutureAwaits with D
       value = "bar",
       createdIndex = Some(9),
       modifiedIndex = Some(10),
-      expiration = None,
-      ttl = None
+      expiration = Some(Instant.parse("2015-10-17T12:16:55.450716163Z")),
+      ttl = Some(25)
     )
   }
 

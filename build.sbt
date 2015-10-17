@@ -1,4 +1,6 @@
-import ReleaseTransformations._
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
+
+lazy val root = (project in file(".")).configs(IntegrationTest).settings(Defaults.itSettings: _*)
 
 name := "play-etcd-client"
 
@@ -10,10 +12,10 @@ scalacOptions := Seq("-deprecation")
 
 libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play-ws" % "2.4.3" % "provided",
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+  "org.scalatest" %% "scalatest" % "2.2.4" % "test, it",
   "org.mockito" % "mockito-core" % "1.10.19" % "test",
   "de.leanovate.play-mockws" %% "play-mockws" % "2.4.1" % "test",
-  "com.typesafe.play" %% "play-test" % "2.4.3" % "test"
+  "com.typesafe.play" %% "play-test" % "2.4.3" % "test, it"
 )
 
 fork in run := true
