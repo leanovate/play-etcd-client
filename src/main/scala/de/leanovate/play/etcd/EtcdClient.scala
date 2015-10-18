@@ -93,20 +93,20 @@ class EtcdClient @Inject()(
    * @param ttl Optional time to live for the value node
    * @param prevValue Optional previous value of the node (compare and set operation)
    * @param prevIndex Optional previous index of the node (compare and set operation)
-   * @param prevExists Optional flag if node is supposed to exists (compare and set operation)
+   * @param prevExist Optional flag if node is supposed to exists (compare and set operation)
    * @return Result from etcd cluster
    */
   def updateValue(key: String, value: String,
                   ttl: Option[Long] = None,
                   prevValue: Option[String] = None,
                   prevIndex: Option[Long] = None,
-                  prevExists: Option[Boolean] = None): Future[EtcdResult] = {
+                  prevExist: Option[Boolean] = None): Future[EtcdResult] = {
     val params = (Seq("value" -> Seq(value)) ++
       ttl.map(v => "ttl" -> Seq(v.toString))
       ).toMap
     val query = prevValue.map("prevValue" -> _).toSeq ++
       prevIndex.map("prevIndex" -> _.toString).toSeq ++
-      prevExists.map("prevExists" -> _.toString).toSeq
+      prevExist.map("prevExist" -> _.toString).toSeq
 
     wsClient.url(s"$etcdUrl/v2/keys$key").withQueryString(query: _ *).put(params).map(handleResponse)
   }

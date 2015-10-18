@@ -138,14 +138,14 @@ class EtcdOperations @Inject()(
    */
   def tryLock(key: String, ttl: Option[Long])(block: => Unit): Future[(Long, Boolean)] = {
     etcdClient.updateValue(key, InetAddress.getLocalHost.getHostName,
-      ttl = ttl, prevExists = Some(false)).flatMap {
+      ttl = ttl, prevExist = Some(false)).flatMap {
       case _: EtcdSuccess =>
         Try(block)
         etcdClient.deleteValue(key).map {
           case EtcdSuccess(etcdIndex, _, _, _) => (etcdIndex, true)
           case etcdError => throw new RuntimeException(s"Etcd request failed: $etcdError")
         }
-      case EtcdError(etcdIndex, _, EtcdErrorCodes.COMPARE_FAILED, _, _) => Future.successful((etcdIndex, false))
+      case EtcdError(etcdIndex, _, EtcdErrorCodes.KEY_ALREADY_EXISTS, _, _) => Future.successful((etcdIndex, false))
       case etcdError => throw new RuntimeException(s"Etcd request failed: $etcdError")
     }
   }
@@ -159,7 +159,7 @@ class EtcdOperations @Inject()(
    * @param ttl Optional time to live of the key (recommended to prevent deadlocks in case of a major failure)
    * @param block The code block requiring cluster-wide synchronization
    */
-  def lock(key: String, ttl: Option[Long])(block: => Unit): Future[Unit] = {
+  def lock(key: String, ttl: Option[Long] = None)(block: => Unit): Future[Unit] = {
     tryLock(key, ttl)(block).flatMap {
       case (_, true) => Future.successful(Unit)
       case (etcdIndex, false) => etcdClient.getNode(key, wait = Some(true), waitIndex = Some(etcdIndex + 1)).flatMap {
