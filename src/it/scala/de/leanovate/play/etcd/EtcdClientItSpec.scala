@@ -3,8 +3,6 @@ package de.leanovate.play.etcd
 import org.scalatest.{FlatSpec, MustMatchers}
 import play.api.test.{DefaultAwaitTimeout, FutureAwaits}
 
-import scala.util.Random
-
 class EtcdClientItSpec extends FlatSpec with MustMatchers with FutureAwaits with DefaultAwaitTimeout {
 
   it should "create, get, update and delete value key" in new WithEtcdClient {
@@ -44,7 +42,7 @@ class EtcdClientItSpec extends FlatSpec with MustMatchers with FutureAwaits with
       await(etcdClient.updateDir(testKey, ttl = Some(30)))
 
     createDirEtcdIndex must be > initalEtcdIndex
-    createdDirNode.nodes must have size (0)
+    createdDirNode.nodes must have size 0
 
     val EtcdSuccess(createEtcdIndex1, "create", createdNode1: EtcdValueNode, None) =
       await(etcdClient.createValue(testKey, "first", ttl = Some(30)))

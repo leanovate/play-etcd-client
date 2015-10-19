@@ -41,7 +41,7 @@ class EtcdOperationItSpec extends FlatSpec with MustMatchers with FutureAwaits w
 
     val results = runners.map(runner => await(runner._1))
 
-    results.flatten.toSet must have size (400)
+    results.flatten.toSet must have size 400
 
     await(etcdOperations.getValues(testKey)) mustEqual Seq("400")
   }
@@ -65,7 +65,7 @@ class EtcdOperationItSpec extends FlatSpec with MustMatchers with FutureAwaits w
         }
       }
 
-      return (promise.future, new Thread(runnable, s"runner-$idx"))
+      (promise.future, new Thread(runnable, s"runner-$idx"))
     }
 
     val runners = Range(0, 10).map(createRunner)
