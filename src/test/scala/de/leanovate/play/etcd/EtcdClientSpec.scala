@@ -177,8 +177,6 @@ class EtcdClientSpec extends FlatSpec with MustMatchers with FutureAwaits with D
     )
   }
 
-  // {"action":"create","node":{"key":"/har/12","value":"bla","modifiedIndex":12,"createdIndex":12}}
-
   it should "create value nodes in directory" in new WithMocks {
     override def etcdRoute: Route = Route {
       case (POST, "http://localhost:2379/v2/keys/foo") => Action {
