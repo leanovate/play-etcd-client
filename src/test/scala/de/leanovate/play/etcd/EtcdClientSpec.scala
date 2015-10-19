@@ -74,6 +74,12 @@ class EtcdClientSpec extends FlatSpec with MustMatchers with FutureAwaits with D
     val EtcdSuccess(etcdIndex, action, node, prevNode) = await(etcdClient.getNode("/foo"))
 
     etcdIndex mustEqual 10
+    action mustEqual "get"
+    node mustEqual EtcdDirNode("/foo",
+      Seq(
+        EtcdValueNode("/foo/bar", "foobar", Some(9), Some(10), None, None),
+        EtcdDirNode("/foo/foo", Seq(), Some(9), Some(10), None, None)
+      ), Some(9), Some(10), None, None)
   }
 
   it should "handle missing nodes" in new WithMocks {
@@ -98,11 +104,117 @@ class EtcdClientSpec extends FlatSpec with MustMatchers with FutureAwaits with D
     index mustEqual 10
   }
 
+  it should "delete value nodes" in new WithMocks {
+    override def etcdRoute: Route = Route {
+      case (DELETE, "http://localhost:2379/v2/keys/foo") => Action {
+        Ok(
+          Json.obj(
+            "action" -> "delete",
+            "node" -> Json.obj(
+              "key" -> "/foo",
+              "modifiedIndex" -> 7,
+              "createdIndex" -> 6
+            ),
+            "prevNode" -> Json.obj(
+              "key" -> "/foo",
+              "value" -> "bar",
+              "modifiedIndex" -> 6,
+              "createdIndex" -> 6
+            )
+          )
+        ).withHeaders("X-Etcd-Index" -> "10")
+      }
+    }
+
+    val EtcdSuccess(etcdIndex, action, node, prevNode) = await(etcdClient.deleteValue("/foo"))
+
+    etcdIndex mustEqual 10
+    node mustEqual EtcdValueNode(
+      key = "/foo",
+      value = "",
+      createdIndex = Some(6),
+      modifiedIndex = Some(7),
+      expiration = None,
+      ttl = None
+    )
+    prevNode mustEqual Some(EtcdValueNode(
+      key = "/foo",
+      value = "bar",
+      createdIndex = Some(6),
+      modifiedIndex = Some(6),
+      expiration = None,
+      ttl = None
+    ))
+  }
+
+  it should "update value nodes" in new WithMocks {
+    override def etcdRoute: Route = Route {
+      case (PUT, "http://localhost:2379/v2/keys/foo") => Action {
+        Ok(
+          Json.obj(
+            "action" -> "set",
+            "node" -> Json.obj(
+              "key" -> "/foo",
+              "value" -> "bar",
+              "modifiedIndex" -> 8,
+              "createdIndex" -> 8
+            )
+          )
+        ).withHeaders("X-Etcd-Index" -> "10")
+      }
+    }
+
+    val EtcdSuccess(etcdIndex, action, node, prevNode) = await(etcdClient.updateValue("/foo", "bar"))
+
+    etcdIndex mustEqual 10
+    node mustEqual EtcdValueNode(
+      key = "/foo",
+      value = "bar",
+      createdIndex = Some(8),
+      modifiedIndex = Some(8),
+      expiration = None,
+      ttl = None
+    )
+  }
+
+  // {"action":"create","node":{"key":"/har/12","value":"bla","modifiedIndex":12,"createdIndex":12}}
+
+  it should "create value nodes in directory" in new WithMocks {
+    override def etcdRoute: Route = Route {
+      case (POST, "http://localhost:2379/v2/keys/foo") => Action {
+        Ok(
+          Json.obj(
+            "action" -> "create",
+            "node" -> Json.obj(
+              "key" -> "/foo/12",
+              "value" -> "bar",
+              "modifiedIndex" -> 8,
+              "createdIndex" -> 8
+            )
+          )
+        ).withHeaders("X-Etcd-Index" -> "10")
+      }
+    }
+
+    val EtcdSuccess(etcdIndex, action, node, prevNode) = await(etcdClient.createValue("/foo", "bar"))
+
+    etcdIndex mustEqual 10
+    node mustEqual EtcdValueNode(
+      key = "/foo/12",
+      value = "bar",
+      createdIndex = Some(8),
+      modifiedIndex = Some(8),
+      expiration = None,
+      ttl = None
+    )
+  }
+
   trait WithMocks {
     def etcdRoute: Route
 
     val mockWS = MockWS(etcdRoute)
     val etcdClient = new EtcdClient("http://localhost:2379", mockWS)
   }
+
 }
 
