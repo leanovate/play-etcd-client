@@ -130,7 +130,6 @@ class EtcdOperations @Inject()(
       }
     }
 
-
     tryPopCandidates()
   }
 
