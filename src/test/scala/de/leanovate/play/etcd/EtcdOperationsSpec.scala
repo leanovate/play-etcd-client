@@ -1,12 +1,15 @@
 package de.leanovate.play.etcd
 
-import org.mockito.Matchers._
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+
+import org.mockito.Matchers.{eq => eql, _}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, MustMatchers}
 import play.api.test.{DefaultAwaitTimeout, FutureAwaits}
 
 import scala.concurrent.Future
+import scala.util.Success
 
 class EtcdOperationsSpec extends FlatSpec with MustMatchers with MockitoSugar with FutureAwaits with DefaultAwaitTimeout {
 
@@ -120,6 +123,85 @@ class EtcdOperationsSpec extends FlatSpec with MustMatchers with MockitoSugar wi
     result mustEqual "value2"
   }
 
+  it should "try lock success" in new WithMocks {
+    when(mockEtcdClient.updateValue(any[String], any[String], any[Option[Long]], any[Option[String]], any[Option[Long]], any[Option[Boolean]])).
+      thenReturn(Future.successful(EtcdSuccess(12, "set", EtcdValueNode(testKey, "", None, Some(11), None, None), None)))
+    when(mockEtcdClient.deleteValue(testKey)).
+      thenReturn(Future.successful(EtcdSuccess(12, "set", EtcdValueNode(testKey, "", None, Some(11), None, None), None)))
+
+    val ran = new AtomicBoolean(false)
+    val result = await(etcdOperations.tryLock(testKey, ttl = Some(30)) {
+      ran.set(true)
+      "the result"
+    })
+
+    ran.get() mustEqual true
+    result._1 mustEqual 12
+    result._2 mustEqual Some(Success("the result"))
+
+    verify(mockEtcdClient).updateValue(eql(testKey), any[String], eql(Some(30)), any[Option[String]], any[Option[Long]], eql(Some(false)))
+    verify(mockEtcdClient, times(2)).deleteValue(testKey)
+  }
+
+  it should "try lock failure" in new WithMocks {
+    when(mockEtcdClient.updateValue(any[String], any[String], any[Option[Long]], any[Option[String]], any[Option[Long]], any[Option[Boolean]])).
+      thenReturn(Future.successful(EtcdError(12, testKey, EtcdErrorCodes.KEY_ALREADY_EXISTS, 12, "")))
+
+    val ran = new AtomicBoolean(false)
+    val result = await(etcdOperations.tryLock(testKey, ttl = Some(30)) {
+      ran.set(true)
+      "the result"
+    })
+
+    ran.get() mustEqual false
+    result._1 mustEqual 12
+    result._2 mustEqual None
+
+    verify(mockEtcdClient).updateValue(eql(testKey), any[String], eql(Some(30)), any[Option[String]], any[Option[Long]], eql(Some(false)))
+  }
+
+  it should "lock success" in new WithMocks {
+    when(mockEtcdClient.updateValue(any[String], any[String], any[Option[Long]], any[Option[String]], any[Option[Long]], any[Option[Boolean]])).
+      thenReturn(Future.successful(EtcdSuccess(12, "set", EtcdValueNode(testKey, "", None, Some(11), None, None), None)))
+    when(mockEtcdClient.deleteValue(testKey)).
+      thenReturn(Future.successful(EtcdSuccess(12, "set", EtcdValueNode(testKey, "", None, Some(11), None, None), None)))
+
+    val ran = new AtomicInteger(0)
+    val result = await(etcdOperations.lock(testKey, ttl = Some(30)) {
+      ran.incrementAndGet()
+      "the result"
+    })
+
+    ran.get() mustEqual 1
+    result mustEqual Success("the result")
+
+    verify(mockEtcdClient).updateValue(eql(testKey), any[String], eql(Some(30)), any[Option[String]], any[Option[Long]], eql(Some(false)))
+    verify(mockEtcdClient, times(2)).deleteValue(testKey)
+  }
+
+  it should "lock success retry" in new WithMocks {
+    when(mockEtcdClient.updateValue(any[String], any[String], any[Option[Long]], any[Option[String]], any[Option[Long]], any[Option[Boolean]])).
+      thenReturn(Future.successful(EtcdError(12, testKey, EtcdErrorCodes.KEY_ALREADY_EXISTS, 12, ""))).
+      thenReturn(Future.successful(EtcdSuccess(12, "set", EtcdValueNode(testKey, "", None, Some(11), None, None), None)))
+    when(mockEtcdClient.deleteValue(testKey)).
+      thenReturn(Future.successful(EtcdSuccess(12, "set", EtcdValueNode(testKey, "", None, Some(11), None, None), None)))
+    when(mockEtcdClient.getNode(any[String], any[Option[Boolean]], any[Option[Boolean]], any[Option[Boolean]], any[Option[Long]])).
+      thenReturn(Future.successful(EtcdSuccess(12, "set", EtcdValueNode(testKey, "", None, Some(11), None, None), None)))
+
+    val ran = new AtomicInteger(0)
+    val result = await(etcdOperations.lock(testKey, ttl = Some(30)) {
+      ran.incrementAndGet()
+      "the result"
+    })
+
+    ran.get() mustEqual 1
+    result mustEqual Success("the result")
+
+    verify(mockEtcdClient, times(2)).updateValue(eql(testKey), any[String], eql(Some(30)), any[Option[String]], any[Option[Long]], eql(Some(false)))
+    verify(mockEtcdClient, times(2)).deleteValue(testKey)
+    verify(mockEtcdClient).getNode(eql(testKey), eql(Some(true)), any[Option[Boolean]], any[Option[Boolean]], eql(Some(13)))
+  }
+
   trait WithMocks {
     val mockEtcdClient = mock[EtcdClient]
 
@@ -127,5 +209,4 @@ class EtcdOperationsSpec extends FlatSpec with MustMatchers with MockitoSugar wi
 
     val testKey = "some key"
   }
-
 }
