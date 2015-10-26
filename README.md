@@ -2,6 +2,10 @@
 
 Simple library to use etcd in a play application.
 
+## Build status
+
+Travis-CI: [![Build Status](https://travis-ci.org/leanovate/play-etcd-client.svg?branch=master)](https://travis-ci.org/leanovate/play-etcd-client)
+
 ## Usage
 
 The current version is supposed to run with Play 2.4 only.
