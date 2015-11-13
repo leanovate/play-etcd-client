@@ -1,11 +1,13 @@
 language: scala
 scala:
-   - "2.11.7"
+- 2.11.7
 script:
-  - sbt clean coverage test
+- sbt clean coverage test
 jdk:
-   - oraclejdk8
+- oraclejdk8
 sudo: false
 after_success:
-  - pip install --user codecov && codecov
-  
+- pip install --user codecov && codecov
+notifications:
+  slack:
+    secure: FZ+1Grge+IntGkdDLHwAKUYUWLRT7F0VAKT7VWYNk/HIDHQOhxZtudjbFcMr2EL4P3jYoESmK7h8FZLtWruNLShGO7P5kCsFILqioqN89pVDfGikc+uQ6KfddcLwDTebr8Fv0CYh/oMjrDF8siUW7mz/5s0UCLv2FL1PTOyLin2fhG/TpWeQ/+E+xXh8DJMggwQy4clf/a+dPQdiXDAdeOC9GnHQhhJPMz/OdVy+VuritqxwWYcbTZh19duvSvhjSRTqJNbEjfvssqy2NuIXVXbV34zWgNdt/ByyEH39SAr5cBVHllsnAtftzayMm/SYQMz1V9vqDLlbbh26RP/nhNf/fqueqPvpSeSEcAm2i7+SGnoc2js8YYzMa/5YX7zgd2o2G1DL49oLr7IAdwp0+yO+4OMKwnuGEen4IAGCCSK7B1dP6syk6457d5WbPEvt9x/nvDiW+B1orxNgBHNhXuAmgu5ad9SGLQe/X51PoEHa7VWCKVL2BUL/NVzayB8bF/vG5QAiIH08IoahtTbqbHYKWnS0d8nE2h1lKjYGJaFb/IcpQldg71l+RmNDi2+tO7ckWm2Po9g0D4Rn0unf4BUyGahSE483MneEWMASZGbjK8YJj4OiSQsyBJtYSrndXbhW30vkpPjJp99ZYvYUMBL0WrITC6QEP7QGjm5Nz/o=
