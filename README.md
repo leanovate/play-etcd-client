@@ -1,10 +1,8 @@
 # play-etcd-client
 
+Build status: [![Build Status](https://travis-ci.org/leanovate/play-etcd-client.svg?branch=master)](https://travis-ci.org/leanovate/play-etcd-client) [![codecov.io](https://codecov.io/github/leanovate/play-etcd-client/coverage.svg?branch=master)](https://codecov.io/github/leanovate/play-etcd-client?branch=master)
+
 Simple library to use etcd in a play application.
-
-## Build status
-
-Travis-CI: [![Build Status](https://travis-ci.org/leanovate/play-etcd-client.svg?branch=master)](https://travis-ci.org/leanovate/play-etcd-client)
 
 ## Usage
 
