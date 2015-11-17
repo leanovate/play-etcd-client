@@ -15,7 +15,7 @@ import scala.concurrent.Future
  * @param wsClient WSClient implementation to use
  */
 class EtcdClient @Inject()(
-                            @Named("etdUrl") etcdUrl: String,
+                            @Named("etcdUrl") etcdUrl: String,
                             wsClient: WSClient
                             ) {
   /**
