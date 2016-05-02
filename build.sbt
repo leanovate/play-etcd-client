@@ -8,7 +8,7 @@ organization := "de.leanovate"
 
 scalaVersion := "2.11.7"
 
-val playVersion = "2.4.3"
+val playVersion = "2.5.3"
 
 scalacOptions := Seq("-deprecation")
 
@@ -16,7 +16,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play-ws" % playVersion % "provided",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test, it",
   "org.mockito" % "mockito-core" % "1.10.19" % "test",
-  "de.leanovate.play-mockws" %% "play-mockws" % "2.4.1" % "test",
+  "de.leanovate.play-mockws" %% "play-mockws" % "2.5.0" % "test",
   "com.typesafe.play" %% "play-test" % playVersion % "test, it"
 )
 
